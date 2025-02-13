@@ -83,12 +83,18 @@ def start_driver(option):
     if option == "trades":
         driver.get("https://kolscan.io/trades")
         wait = WebDriverWait(driver, 10)
-        wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Kolscan')]")))   
+        wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Kolscan')]")))
         return getSessionData(driver)
-    else:    
+    elif option == "leaderboard":    
         driver.get("https://kolscan.io/leaderboard")
         wait = WebDriverWait(driver, 10)
         wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Realized PnL Leaderboard')]")))        
+
+        return driver
+    else:
+        driver.get(f"https://kolscan.io/account/example_wallet")
+        wait = WebDriverWait(driver, 10)
+        wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Kolscan')]")))     
 
         return driver
 
@@ -225,12 +231,54 @@ def get_latest_trades():
     sorted_transactions = sorted(all_transactions, key=lambda x: parse_time(x['Time']), reverse=True)[0:10]
 
     return jsonify({"trades": sorted_transactions})
-  
-def save_leaderboard():
-    # Ensure the leaders collection exists
-    
-    print("...................")
 
+@app.route("/account/<wallet>", methods=["GET"])
+def get_account_info(wallet):
+    driver_account.get(f"https://kolscan.io/account/{wallet}")
+    wait = WebDriverWait(driver_account, 5)
+    wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(@class, 'transaction_transactionContainer')]")))
+    holding_items = driver_account.find_elements(By.XPATH, "//*[contains(@class, 'account_accountHolding')]")
+    defi_items = driver_account.find_elements(By.XPATH, "//*[contains(@class, 'transaction_transactionContainer')]")
+    holding, defi_trades = [], []
+    
+    for holding_item in holding_items:
+        token_avatar = holding_item.find_element(By.CSS_SELECTOR, 'div[style*="position: relative"] img').get_attribute('src')
+        # Locate the token amount
+        token_amount = holding_item.find_element(By.CSS_SELECTOR, 'div.cursor-pointer').text.split()[0]
+        # Locate the token name
+        token_name = holding_item.find_element(By.CSS_SELECTOR, 'div.cursor-pointer strong').text
+        # Locate the USD value
+        usd_value = holding_item.find_element(By.CSS_SELECTOR, 'div[style*="margin-left: auto"]').text
+        holding.append({"Token_Avatar": token_avatar, "Token_Amount": token_amount, "Token_Name": token_name, "Usd_Value": usd_value})
+    
+    for defi_item in defi_items:
+        transactionInfo = defi_item.text.split()
+        buy_sell = transactionInfo[0]
+        if buy_sell == "Buy":
+            sol_amount, token_amount, token, timeAgo = transactionInfo[1], transactionInfo[3], transactionInfo[4], transactionInfo[5]
+        else:
+            sol_amount, token_amount, token, timeAgo = transactionInfo[3], transactionInfo[1], transactionInfo[2], transactionInfo[5]
+        # Locate the Time
+        time = defi_item.find_element(By.TAG_NAME, 'a').get_attribute('title')
+        link = defi_item.find_element(By.TAG_NAME, 'a').get_attribute('href')
+        trade = {
+            "Buy_Sell": buy_sell,
+            "Token_Amount": token_amount,
+            "Token": token,
+            "Sol_Amount": sol_amount,
+            "Time": time,
+            "Link": link,
+        }
+        defi_trades.append(trade)
+
+    print("=====>", len(holding), len(defi_trades))
+
+    return jsonify({"holding": holding, "defi": defi_trades})
+
+def save_leaderboard():
+    driver_leaders = start_driver("leaderboard")
+    # Ensure the leaders collection exists
+    print("...................")
     # Scrape the leaderboard data
     leaderboard_data = scrape_leaderboard(driver_leaders)
 
@@ -334,7 +382,7 @@ def run_schedule():
 
 db = ensure_leaders_collection()
 driver_trades = start_driver("trades")
-driver_leaders = start_driver("leaderboard")
+driver_account = start_driver("account")
 Trades_history = {}
 if __name__ == "__main__":
     # Start the schedule in a separate thread
