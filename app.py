@@ -347,6 +347,7 @@ def watch_trades():
             if watch_counts > 60: 
                 driver_trades.refresh()
                 watch_counts = 0
+                Trades_history = {key: value[:10] for key, value in Trades_history.items()}
             socketio.emit("new_trade", {**trade, "Wallet": wallet})
         except:
             print("Error ==> ", )
