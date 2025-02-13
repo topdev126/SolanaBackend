@@ -15,6 +15,7 @@ from datetime import datetime
 from flask_cors import CORS
 from flask_caching import Cache
 from flask_socketio import SocketIO
+import tempfile
 
 
 app = Flask(__name__)
@@ -75,6 +76,9 @@ def start_driver(option):
     chrome_options = Options()
     chrome_options.add_argument("--headless")  # Run in headless mode
     chrome_options.add_argument("--disable-gpu")
+    temp_dir = tempfile.mkdtemp()
+    chrome_options.add_argument(f"--user-data-dir={temp_dir}")  # Specify the temp user data directory
+
     driver = webdriver.Chrome(options=chrome_options)
     if option == "trades":
         driver.get("https://kolscan.io/trades")
