@@ -75,7 +75,6 @@ def start_driver(option):
     chrome_options = Options()
     chrome_options.add_argument("--headless")  # Run in headless mode
     chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--window-size=1920x1080")
     driver = webdriver.Chrome(options=chrome_options)
     if option == "trades":
         driver.get("https://kolscan.io/trades")
