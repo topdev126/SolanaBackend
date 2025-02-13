@@ -5,6 +5,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
 import schedule
 import pymongo
 from pymongo import MongoClient
@@ -15,7 +16,6 @@ from datetime import datetime
 from flask_cors import CORS
 from flask_caching import Cache
 from flask_socketio import SocketIO
-import tempfile
 
 
 app = Flask(__name__)
@@ -76,10 +76,10 @@ def start_driver(option):
     chrome_options = Options()
     chrome_options.add_argument("--headless")  # Run in headless mode
     chrome_options.add_argument("--disable-gpu")
-    temp_dir = tempfile.mkdtemp()
-    chrome_options.add_argument(f"--user-data-dir={temp_dir}")  # Specify the temp user data directory
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
-    driver = webdriver.Chrome(options=chrome_options)
     if option == "trades":
         driver.get("https://kolscan.io/trades")
         wait = WebDriverWait(driver, 10)
