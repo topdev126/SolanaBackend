@@ -209,6 +209,9 @@ def scrape_leaderboard(driver):
         driver.quit()
 
 # Flask Routes
+@app.route('/')
+def hello_world():
+    return 'Welcome to KolsOnline'
 @app.route("/trades", methods=["GET"])
 def get_trades():
     Trades_history_cpy = Trades_history.copy()
@@ -255,9 +258,9 @@ def get_account_info(wallet):
         transactionInfo = defi_item.text.split()
         buy_sell = transactionInfo[0]
         if buy_sell == "Buy":
-            sol_amount, token_amount, token, timeAgo = transactionInfo[1], transactionInfo[3], transactionInfo[4], transactionInfo[5]
+            sol_amount, token_amount, token = transactionInfo[1], transactionInfo[3], transactionInfo[4]
         else:
-            sol_amount, token_amount, token, timeAgo = transactionInfo[3], transactionInfo[1], transactionInfo[2], transactionInfo[5]
+            sol_amount, token_amount, token = transactionInfo[3], transactionInfo[1], transactionInfo[2]
         # Locate the Time
         time = defi_item.find_element(By.TAG_NAME, 'a').get_attribute('title')
         link = defi_item.find_element(By.TAG_NAME, 'a').get_attribute('href')
