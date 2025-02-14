@@ -21,7 +21,7 @@ from flask_socketio import SocketIO
 app = Flask(__name__)
 CORS(app, origins="*", supports_credentials=True, methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 cache = Cache(app, config={'CACHE_TYPE': 'simple'})  # Simple cache
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
 # Check if session data exists
 session_file = 'session_data.pkl'
 if os.path.exists(session_file):
@@ -388,21 +388,28 @@ db = ensure_leaders_collection()
 driver_trades = start_driver("trades")
 driver_account = start_driver("account")
 Trades_history = {}
-if __name__ == "__main__":
+
+def run_background_tasks():
+    """ Start background threads when the app starts """
+    print("Starting background tasks...")
+    
     # Start the schedule in a separate thread
-    schedule_thread = threading.Thread(target=run_schedule)
-    schedule_thread.daemon = True
+    schedule_thread = threading.Thread(target=run_schedule, daemon=True)
     schedule_thread.start()
     
-    # start to get real time trade
+    # Start real-time trade monitoring
     threading.Thread(target=watch_trades, daemon=True).start()
 
     # Get all trades
     scrape_trades(driver_trades)
 
-    # Schedule the save_leaderboard function to run every 10 seconds
+    # Schedule the leaderboard function
     schedule.every(120).minutes.do(save_leaderboard)
 
-    # Run Flask app
-    # app.run()
+@app.before_first_request
+def initialize():
+    """ Ensure background tasks run when the first request hits """
+    run_background_tasks()
+
+if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=5000)
