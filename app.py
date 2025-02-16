@@ -80,7 +80,7 @@ def start_driver(option):
     chrome_options.add_argument('--disable-dev-shm-usage')
     chrome_options.add_argument('--profile-directory=Default')
 
-    driver = webdriver.Chrome(options=chrome_options)
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
     if option == "trades":
         driver.get("https://kolscan.io/trades")
