@@ -221,6 +221,7 @@ def save_leaderboard():
     print("Success Saved !!!")
 
 def watch_trades():
+    import time
     global Trades_history
     wait = WebDriverWait(driver_trades, 20)
     wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(@class, 'trades_kolBox')]")))   
