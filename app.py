@@ -17,6 +17,7 @@ from flask_cors import CORS
 from flask_caching import Cache
 from flask_socketio import SocketIO
 import ssl
+import tempfile
 
 app = Flask(__name__)
 CORS(app, origins="*", supports_credentials=True, methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
@@ -77,6 +78,9 @@ def start_driver(option):
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
+    user_data_dir = tempfile.mkdtemp()  # Creates a temporary directory
+    chrome_options.add_argument(f'--user-data-dir={user_data_dir}')
+        
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
     if option == "trades":
