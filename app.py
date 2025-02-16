@@ -78,9 +78,7 @@ def start_driver(option):
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
-    user_data_dir = tempfile.mkdtemp()  # Creates a temporary directory
-    chrome_options.add_argument(f'--user-data-dir={user_data_dir}')
-    chrome_options.add_argument(f'--profile-directory={user_data_dir}_profile')
+    chrome_options.add_argument("--incognito")
 
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
