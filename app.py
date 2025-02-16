@@ -311,10 +311,10 @@ def run_background_tasks():
     schedule.every(120).minutes.do(save_leaderboard)
 
 # Flask Routes
-@app.route('/api')
+@app.route('/')
 def hello_world():
     return 'Welcome to KolsOnline'
-@app.route("/api/trades", methods=["GET"])
+@app.route("/trades", methods=["GET"])
 def get_trades():
     Trades_history_cpy = Trades_history.copy()
     wallet_latest_times = {
@@ -329,7 +329,7 @@ def get_trades():
     }
     return jsonify({"trades": sorted_transactions})
 
-@app.route("/api/latest", methods=["GET"])
+@app.route("/latest", methods=["GET"])
 def get_latest_trades():
     Trades_history_cpy = Trades_history.copy()
     all_transactions = [tx for wallet in Trades_history_cpy.values() for tx in wallet]
@@ -337,7 +337,7 @@ def get_latest_trades():
 
     return jsonify({"trades": sorted_transactions})
 
-@app.route("/api/account/<wallet>", methods=["GET"])
+@app.route("/account/<wallet>", methods=["GET"])
 def get_account_info(wallet):
     driver_account.get(f"https://kolscan.io/account/{wallet}")
     wait = WebDriverWait(driver_account, 5)
@@ -380,7 +380,7 @@ def get_account_info(wallet):
 
     return jsonify({"holding": holding, "defi": defi_trades})
 
-@app.route("/api/leader", methods=["GET"])
+@app.route("/leader", methods=["GET"])
 @cache.cached(timeout=3600)  # Cache for 60 seconds
 def get_leader():
     print(f"------time start {time.time()}--------------")
