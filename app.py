@@ -16,7 +16,7 @@ from datetime import datetime
 from flask_cors import CORS
 from flask_caching import Cache
 from flask_socketio import SocketIO
-
+import ssl
 
 app = Flask(__name__)
 CORS(app, origins="*", supports_credentials=True, methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
@@ -42,7 +42,7 @@ MONGO_DATABASE = MONGO_DB
 # MongoDB Connection
 def get_mongo_client():
     # Connect to MongoDB using the URI provided
-    client = MongoClient(MONGO_HOST, username=MONGO_USER, password=MONGO_PASSWORD, authSource="admin")
+    client = MongoClient(MONGO_HOST, username=MONGO_USER, password=MONGO_PASSWORD, authSource="admin", tls=True, tlsAllowInvalidCertificates=True)
     return client[MONGO_DATABASE]
 
 # Function to check if the "leaders" collection exists, if not create it
@@ -68,7 +68,6 @@ def insert_leaders_data(leaders_data):
     if leaders_data:
         collection.insert_many(leaders_data)
         print("Data inserted into MongoDB successfully.")
-
 
 
 # Function to start Selenium WebDriver
@@ -208,76 +207,6 @@ def scrape_leaderboard(driver):
     except:
         driver.quit()
 
-# Flask Routes
-@app.route('/')
-def hello_world():
-    return 'Welcome to KolsOnline'
-@app.route("/trades", methods=["GET"])
-def get_trades():
-    Trades_history_cpy = Trades_history.copy()
-    wallet_latest_times = {
-      wallet: max(parse_time(tx["Time"]) for tx in tx_list) for wallet, tx_list in Trades_history_cpy.items()
-    }
-    sorted_wallets = sorted(Trades_history_cpy.keys(), key=lambda w: wallet_latest_times[w], reverse=True)
-
-    # Sort transactions within each wallet by time (latest first)
-    sorted_transactions = {
-        wallet: sorted(Trades_history_cpy[wallet], key=lambda tx: parse_time(tx["Time"]), reverse=True)
-        for wallet in sorted_wallets
-    }
-    return jsonify({"trades": sorted_transactions})
-
-@app.route("/latest", methods=["GET"])
-def get_latest_trades():
-    Trades_history_cpy = Trades_history.copy()
-    all_transactions = [tx for wallet in Trades_history_cpy.values() for tx in wallet]
-    sorted_transactions = sorted(all_transactions, key=lambda x: parse_time(x['Time']), reverse=True)[0:10]
-
-    return jsonify({"trades": sorted_transactions})
-
-@app.route("/account/<wallet>", methods=["GET"])
-def get_account_info(wallet):
-    driver_account.get(f"https://kolscan.io/account/{wallet}")
-    wait = WebDriverWait(driver_account, 5)
-    wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(@class, 'transaction_transactionContainer')]")))
-    holding_items = driver_account.find_elements(By.XPATH, "//*[contains(@class, 'account_accountHolding')]")
-    defi_items = driver_account.find_elements(By.XPATH, "//*[contains(@class, 'transaction_transactionContainer')]")
-    holding, defi_trades = [], []
-    
-    for holding_item in holding_items:
-        token_avatar = holding_item.find_element(By.CSS_SELECTOR, 'div[style*="position: relative"] img').get_attribute('src')
-        # Locate the token amount
-        token_amount = holding_item.find_element(By.CSS_SELECTOR, 'div.cursor-pointer').text.split()[0]
-        # Locate the token name
-        token_name = holding_item.find_element(By.CSS_SELECTOR, 'div.cursor-pointer strong').text
-        # Locate the USD value
-        usd_value = holding_item.find_element(By.CSS_SELECTOR, 'div[style*="margin-left: auto"]').text
-        holding.append({"Token_Avatar": token_avatar, "Token_Amount": token_amount, "Token_Name": token_name, "Usd_Value": usd_value})
-    
-    for defi_item in defi_items:
-        transactionInfo = defi_item.text.split()
-        buy_sell = transactionInfo[0]
-        if buy_sell == "Buy":
-            sol_amount, token_amount, token = transactionInfo[1], transactionInfo[3], transactionInfo[4]
-        else:
-            sol_amount, token_amount, token = transactionInfo[3], transactionInfo[1], transactionInfo[2]
-        # Locate the Time
-        time = defi_item.find_element(By.TAG_NAME, 'a').get_attribute('title')
-        link = defi_item.find_element(By.TAG_NAME, 'a').get_attribute('href')
-        trade = {
-            "Buy_Sell": buy_sell,
-            "Token_Amount": token_amount,
-            "Token": token,
-            "Sol_Amount": sol_amount,
-            "Time": time,
-            "Link": link,
-        }
-        defi_trades.append(trade)
-
-    print("=====>", len(holding), len(defi_trades))
-
-    return jsonify({"holding": holding, "defi": defi_trades})
-
 def save_leaderboard():
     driver_leaders = start_driver("leaderboard")
     # Ensure the leaders collection exists
@@ -302,7 +231,7 @@ def watch_trades():
     first_item_xpath = "(.//*[contains(@class, 'transaction_transactionContainer')])[1]"
     avatar = trade_box.find_element(By.XPATH, ".//img[contains(@alt, 'pfp')]").get_attribute("src") 
     previous_value = extract_trade_info(trade_box.find_element(By.XPATH, first_item_xpath).text)
-    watch_counts = 0
+    start_time = time.time()
     while True:
         try: 
             WebDriverWait(trade_box, 500).until_not(
@@ -346,38 +275,17 @@ def watch_trades():
                 Trades_history[wallet].insert(0, trade)
             else:
                 Trades_history[wallet] = [trade]
-            watch_counts += 1
-            if watch_counts > 60: 
-                driver_trades.refresh()
-                watch_counts = 0
+            end_time = time.time()
+            if end_time - start_time > 300: 
+                # driver_trades.refresh()
+                trade_box.click()
+                start_time = time.time()
                 Trades_history = {key: value[:10] for key, value in Trades_history.items()}
             socketio.emit("new_trade", {**trade, "Wallet": wallet})
         except:
             print("Error ==> ", )
             pass
 
-
-@app.route("/leader", methods=["GET"])
-@cache.cached(timeout=3600)  # Cache for 60 seconds
-def get_leader():
-    print(f"------time start {time.time()}--------------")
-    try:
-        leaders = list(db.leaders.find())  # Retrieve all documents from the leaders collection
-
-        if not leaders:
-            return jsonify({"message": "No data found"}), 404
-        
-        # Convert MongoDB ObjectId to string
-        for leader in leaders:
-            leader["_id"] = str(leader["_id"])
-        print(f"----------- time end {time.time()}--------------")
-
-        return jsonify(leaders), 200
-
-    except Exception as e:
-        print("❌ Error fetching leader data:", e)
-        return jsonify({"message": "Server error", "error": str(e)}), 500
-    
 # Function to run the scheduled tasks
 def run_schedule():
     while True:
@@ -401,6 +309,97 @@ def run_background_tasks():
     # Schedule the leaderboard function
     schedule.every(120).minutes.do(save_leaderboard)
 
+# Flask Routes
+@app.route('/api')
+def hello_world():
+    return 'Welcome to KolsOnline'
+@app.route("/api/trades", methods=["GET"])
+def get_trades():
+    Trades_history_cpy = Trades_history.copy()
+    wallet_latest_times = {
+      wallet: max(parse_time(tx["Time"]) for tx in tx_list) for wallet, tx_list in Trades_history_cpy.items()
+    }
+    sorted_wallets = sorted(Trades_history_cpy.keys(), key=lambda w: wallet_latest_times[w], reverse=True)
+
+    # Sort transactions within each wallet by time (latest first)
+    sorted_transactions = {
+        wallet: sorted(Trades_history_cpy[wallet], key=lambda tx: parse_time(tx["Time"]), reverse=True)
+        for wallet in sorted_wallets
+    }
+    return jsonify({"trades": sorted_transactions})
+
+@app.route("/api/latest", methods=["GET"])
+def get_latest_trades():
+    Trades_history_cpy = Trades_history.copy()
+    all_transactions = [tx for wallet in Trades_history_cpy.values() for tx in wallet]
+    sorted_transactions = sorted(all_transactions, key=lambda x: parse_time(x['Time']), reverse=True)[0:10]
+
+    return jsonify({"trades": sorted_transactions})
+
+@app.route("/api/account/<wallet>", methods=["GET"])
+def get_account_info(wallet):
+    driver_account.get(f"https://kolscan.io/account/{wallet}")
+    wait = WebDriverWait(driver_account, 5)
+    wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(@class, 'transaction_transactionContainer')]")))
+    holding_items = driver_account.find_elements(By.XPATH, "//*[contains(@class, 'account_accountHolding')]")
+    defi_items = driver_account.find_elements(By.XPATH, "//*[contains(@class, 'transaction_transactionContainer')]")
+    holding, defi_trades = [], []
+    
+    for holding_item in holding_items:
+        token_avatar = holding_item.find_element(By.CSS_SELECTOR, 'div[style*="position: relative"] img').get_attribute('src')
+        # Locate the token amount
+        token_amount = holding_item.find_element(By.CSS_SELECTOR, 'div.cursor-pointer').text.split()[0]
+        # Locate the token name
+        token_name = holding_item.find_element(By.CSS_SELECTOR, 'div.cursor-pointer strong').text
+        # Locate the USD value
+        usd_value = holding_item.find_element(By.CSS_SELECTOR, 'div[style*="margin-left: auto"]').text
+        holding.append({"Token_Avatar": token_avatar, "Token_Amount": token_amount, "Token_Name": token_name, "Usd_Value": usd_value})
+    
+    for defi_item in defi_items:
+        transactionInfo = defi_item.text.split()
+        buy_sell = transactionInfo[0]
+        if buy_sell == "Buy":
+            sol_amount, token_amount, token = transactionInfo[1], transactionInfo[3], transactionInfo[4]
+        else:
+            sol_amount, token_amount, token = transactionInfo[3], transactionInfo[1], transactionInfo[2]
+        # Locate the Time
+        time = defi_item.find_element(By.TAG_NAME, 'a').get_attribute('title')
+        link = defi_item.find_element(By.TAG_NAME, 'a').get_attribute('href')
+        trade = {
+            "Buy_Sell": buy_sell,
+            "Token_Amount": token_amount,
+            "Token": token,
+            "Sol_Amount": sol_amount,
+            "Time": time,
+            "Link": link,
+        }
+        defi_trades.append(trade)
+
+    print("=====>", len(holding), len(defi_trades))
+
+    return jsonify({"holding": holding, "defi": defi_trades})
+
+@app.route("/api/leader", methods=["GET"])
+@cache.cached(timeout=3600)  # Cache for 60 seconds
+def get_leader():
+    print(f"------time start {time.time()}--------------")
+    try:
+        leaders = list(db.leaders.find())  # Retrieve all documents from the leaders collection
+
+        if not leaders:
+            return jsonify({"message": "No data found"}), 404
+        
+        # Convert MongoDB ObjectId to string
+        for leader in leaders:
+            leader["_id"] = str(leader["_id"])
+        print(f"----------- time end {time.time()}--------------")
+
+        return jsonify(leaders), 200
+
+    except Exception as e:
+        print("❌ Error fetching leader data:", e)
+        return jsonify({"message": "Server error", "error": str(e)}), 500
+    
 db = ensure_leaders_collection()
 driver_trades = start_driver("trades")
 driver_account = start_driver("account")
