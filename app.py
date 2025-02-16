@@ -21,7 +21,7 @@ import ssl
 app = Flask(__name__)
 CORS(app, origins="*", supports_credentials=True, methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 cache = Cache(app, config={'CACHE_TYPE': 'simple'})  # Simple cache
-socketio = SocketIO(app, async_mode="eventlet", cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*")
 # Check if session data exists
 session_file = 'session_data.pkl'
 if os.path.exists(session_file):
@@ -407,5 +407,5 @@ driver_account = start_driver("account")
 Trades_history = {}
 run_background_tasks()
 
-# if __name__ == "__main__":
-#     socketio.run(app, host="0.0.0.0", port=5000)
+if __name__ == "__main__":
+    socketio.run(app, host="0.0.0.0", port=5000)
