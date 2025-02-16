@@ -257,7 +257,7 @@ def watch_trades():
                 sol_amount, token_amount, token, timeAgo = transactionInfo[3], transactionInfo[1], transactionInfo[2], transactionInfo[5]
 
             # Extract Time (from the <a> tag's title attribute)
-            time = transaction.find_element(By.TAG_NAME, 'a').get_attribute('title')
+            time_transaction = transaction.find_element(By.TAG_NAME, 'a').get_attribute('title')
             # Extract Link (from the <a> tag's href attribute)
             link = transaction.find_element(By.TAG_NAME, 'a').get_attribute('href')
             trade = {
@@ -267,7 +267,7 @@ def watch_trades():
                 "Token_Amount": token_amount,
                 "Token": token,
                 "Sol_Amount": sol_amount,
-                "Time": time,
+                "Time": time_transaction,
                 "Link": link,
                 "Wallet": wallet,
             }
