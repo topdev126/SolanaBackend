@@ -221,7 +221,6 @@ def save_leaderboard():
     print("Success Saved !!!")
 
 def watch_trades():
-    import time
     global Trades_history
     wait = WebDriverWait(driver_trades, 20)
     wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(@class, 'trades_kolBox')]")))   
@@ -257,7 +256,7 @@ def watch_trades():
                 sol_amount, token_amount, token, timeAgo = transactionInfo[3], transactionInfo[1], transactionInfo[2], transactionInfo[5]
 
             # Extract Time (from the <a> tag's title attribute)
-            time_transaction = transaction.find_element(By.TAG_NAME, 'a').get_attribute('title')
+            time = transaction.find_element(By.TAG_NAME, 'a').get_attribute('title')
             # Extract Link (from the <a> tag's href attribute)
             link = transaction.find_element(By.TAG_NAME, 'a').get_attribute('href')
             trade = {
@@ -267,7 +266,7 @@ def watch_trades():
                 "Token_Amount": token_amount,
                 "Token": token,
                 "Sol_Amount": sol_amount,
-                "Time": time_transaction,
+                "Time": time,
                 "Link": link,
                 "Wallet": wallet,
             }
@@ -311,10 +310,10 @@ def run_background_tasks():
     schedule.every(120).minutes.do(save_leaderboard)
 
 # Flask Routes
-@app.route('/')
+@app.route('/api')
 def hello_world():
     return 'Welcome to KolsOnline'
-@app.route("/trades", methods=["GET"])
+@app.route("/api/trades", methods=["GET"])
 def get_trades():
     Trades_history_cpy = Trades_history.copy()
     wallet_latest_times = {
@@ -329,7 +328,7 @@ def get_trades():
     }
     return jsonify({"trades": sorted_transactions})
 
-@app.route("/latest", methods=["GET"])
+@app.route("/api/latest", methods=["GET"])
 def get_latest_trades():
     Trades_history_cpy = Trades_history.copy()
     all_transactions = [tx for wallet in Trades_history_cpy.values() for tx in wallet]
@@ -337,7 +336,7 @@ def get_latest_trades():
 
     return jsonify({"trades": sorted_transactions})
 
-@app.route("/account/<wallet>", methods=["GET"])
+@app.route("/api/account/<wallet>", methods=["GET"])
 def get_account_info(wallet):
     driver_account.get(f"https://kolscan.io/account/{wallet}")
     wait = WebDriverWait(driver_account, 5)
@@ -380,7 +379,7 @@ def get_account_info(wallet):
 
     return jsonify({"holding": holding, "defi": defi_trades})
 
-@app.route("/leader", methods=["GET"])
+@app.route("/api/leader", methods=["GET"])
 @cache.cached(timeout=3600)  # Cache for 60 seconds
 def get_leader():
     print(f"------time start {time.time()}--------------")
