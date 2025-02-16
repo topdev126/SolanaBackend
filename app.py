@@ -407,5 +407,5 @@ driver_account = start_driver("account")
 Trades_history = {}
 run_background_tasks()
 
-# if __name__ == "__main__":
-#     socketio.run(app, host="0.0.0.0", port=5000)
+if __name__ == "__main__":
+    socketio.run(app, host="0.0.0.0", port=5000)
