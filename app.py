@@ -305,7 +305,7 @@ def run_background_tasks():
     threading.Thread(target=watch_trades, daemon=True).start()
 
     # Get all trades
-    scrape_trades(driver_trades)
+    # scrape_trades(driver_trades)
 
     # Schedule the leaderboard function
     schedule.every(120).minutes.do(save_leaderboard)
