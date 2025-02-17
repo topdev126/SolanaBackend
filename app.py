@@ -277,9 +277,9 @@ def watch_trades():
             else:
                 Trades_history[wallet] = [trade]
             end_time = time.time()
-            if end_time - start_time > 300: 
-                # driver_trades.refresh()
-                trade_box.click()
+            if end_time - start_time > 600: 
+                driver_trades.refresh()
+                # trade_box.click()
                 start_time = time.time()
                 Trades_history = {key: value[:10] for key, value in Trades_history.items()}
             socketio.emit("new_trade", {**trade, "Wallet": wallet})
