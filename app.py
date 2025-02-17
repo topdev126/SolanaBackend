@@ -21,7 +21,7 @@ import ssl
 app = Flask(__name__)
 CORS(app, origins="*", supports_credentials=True, methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 cache = Cache(app, config={'CACHE_TYPE': 'simple'})  # Simple cache
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", engineio_logger=True)
 # Check if session data exists
 session_file = 'session_data.pkl'
 if os.path.exists(session_file):
