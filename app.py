@@ -19,6 +19,7 @@ from flask_socketio import SocketIO
 import ssl
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = '12345'
 CORS(app, origins="*", supports_credentials=True, methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 cache = Cache(app, config={'CACHE_TYPE': 'simple'})  # Simple cache
 socketio = SocketIO(app, cors_allowed_origins="*", engineio_logger=True)
