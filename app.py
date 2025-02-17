@@ -15,7 +15,7 @@ import threading
 from datetime import datetime
 from flask_cors import CORS
 from flask_caching import Cache
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO
 import ssl
 
 app = Flask(__name__)
@@ -305,7 +305,7 @@ def run_background_tasks():
     threading.Thread(target=watch_trades, daemon=True).start()
 
     # Get all trades
-    # scrape_trades(driver_trades)
+    scrape_trades(driver_trades)
 
     # Schedule the leaderboard function
     schedule.every(120).minutes.do(save_leaderboard)
@@ -401,11 +401,6 @@ def get_leader():
         print("❌ Error fetching leader data:", e)
         return jsonify({"message": "Server error", "error": str(e)}), 500
     
-@socketio.on('connect')
-def handle_connect():
-    print("Client connected")
-    emit('message', {'data': 'Connection successful'})
-
 db = ensure_leaders_collection()
 driver_trades = start_driver("trades")
 driver_account = start_driver("account")
