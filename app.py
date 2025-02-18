@@ -340,65 +340,65 @@ def get_latest_trades():
 
     return jsonify({"trades": sorted_transactions})
 
-@app.route("/getTrend", methods=["GET"])
-def getTrend():
-    tokens = np.array([entry['Token'] for entry in Trades_history])
-    buy_sell = np.array([entry['Buy_Sell'] for entry in Trades_history])
-    sol_amounts = np.array([entry['Sol_Amount'] for entry in Trades_history])
-    token_amounts = np.array([entry['Token_Amount'] for entry in Trades_history])
-    time_strings = np.array([entry['Time'] for entry in Trades_history])
+# @app.route("/getTrend", methods=["GET"])
+# def getTrend():
+#     tokens = np.array([entry['Token'] for entry in Trades_history])
+#     buy_sell = np.array([entry['Buy_Sell'] for entry in Trades_history])
+#     sol_amounts = np.array([entry['Sol_Amount'] for entry in Trades_history])
+#     token_amounts = np.array([entry['Token_Amount'] for entry in Trades_history])
+#     time_strings = np.array([entry['Time'] for entry in Trades_history])
 
-    # Convert time to datetime format
-    times = np.array([datetime.strptime(time, '%a %b %d %Y %H:%M:%S GMT+0000 (Coordinated Universal Time)') for time in time_strings])
+#     # Convert time to datetime format
+#     times = np.array([datetime.strptime(time, '%a %b %d %Y %H:%M:%S GMT+0000 (Coordinated Universal Time)') for time in time_strings])
 
-    # Get the current time and calculate the 10 minutes ago timestamp
-    now = datetime.utcnow()
-    ten_minutes_ago = now - timedelta(minutes=10)
+#     # Get the current time and calculate the 10 minutes ago timestamp
+#     now = datetime.utcnow()
+#     ten_minutes_ago = now - timedelta(minutes=10)
 
-    # Filter out the trades that are within the last 10 minutes
-    time_mask = times >= ten_minutes_ago
+#     # Filter out the trades that are within the last 10 minutes
+#     time_mask = times >= ten_minutes_ago
 
-    # Filtered data
-    filtered_tokens = tokens[time_mask]
-    filtered_buy_sell = buy_sell[time_mask]
-    filtered_sol_amounts = sol_amounts[time_mask]
-    filtered_token_amounts = token_amounts[time_mask]
+#     # Filtered data
+#     filtered_tokens = tokens[time_mask]
+#     filtered_buy_sell = buy_sell[time_mask]
+#     filtered_sol_amounts = sol_amounts[time_mask]
+#     filtered_token_amounts = token_amounts[time_mask]
 
-    # Get unique tokens in the last 10 minutes
-    unique_tokens = np.unique(filtered_tokens)
+#     # Get unique tokens in the last 10 minutes
+#     unique_tokens = np.unique(filtered_tokens)
 
-    # Prepare results for token trends within the last 10 minutes
-    token_trends = {}
+#     # Prepare results for token trends within the last 10 minutes
+#     token_trends = {}
 
-    for token in unique_tokens:
-        token_mask = (filtered_tokens == token)  # Mask for the current token
-        token_buy_sell = filtered_buy_sell[token_mask]  # Buy/Sell actions for the current token
-        token_sol_amount = filtered_sol_amounts[token_mask]  # SOL amounts for the current token
-        token_token_amount = filtered_token_amounts[token_mask]  # Token amounts for the current token
+#     for token in unique_tokens:
+#         token_mask = (filtered_tokens == token)  # Mask for the current token
+#         token_buy_sell = filtered_buy_sell[token_mask]  # Buy/Sell actions for the current token
+#         token_sol_amount = filtered_sol_amounts[token_mask]  # SOL amounts for the current token
+#         token_token_amount = filtered_token_amounts[token_mask]  # Token amounts for the current token
         
-        # Calculate total bought and sold in SOL
-        total_bought = np.sum(token_sol_amount[token_buy_sell == 'Buy'])
-        total_sold = np.sum(token_sol_amount[token_buy_sell == 'Sell'])
+#         # Calculate total bought and sold in SOL
+#         total_bought = np.sum(token_sol_amount[token_buy_sell == 'Buy'])
+#         total_sold = np.sum(token_sol_amount[token_buy_sell == 'Sell'])
         
-        # Calculate the profit (Total Bought - Total Sold)
-        total_profit = total_bought - total_sold
+#         # Calculate the profit (Total Bought - Total Sold)
+#         total_profit = total_bought - total_sold
 
-        # Store the trend in the dictionary
-        token_trends[token] = {
-            'Total_Bought': total_bought,
-            'Total_Sold': total_sold,
-            'Net_Amount': total_profit,  # Net amount for trend indication (profit)
-            'Buy_Count': np.sum(token_buy_sell == 'Buy'),
-            'Sell_Count': np.sum(token_buy_sell == 'Sell'),
-            'Total_SOL': np.sum(token_sol_amount)  # Total SOL traded for the token
-        }
+#         # Store the trend in the dictionary
+#         token_trends[token] = {
+#             'Total_Bought': total_bought,
+#             'Total_Sold': total_sold,
+#             'Net_Amount': total_profit,  # Net amount for trend indication (profit)
+#             'Buy_Count': np.sum(token_buy_sell == 'Buy'),
+#             'Sell_Count': np.sum(token_buy_sell == 'Sell'),
+#             'Total_SOL': np.sum(token_sol_amount)  # Total SOL traded for the token
+#         }
 
-    # Sort the tokens by Total SOL traded in descending order
-    sorted_tokens = sorted(token_trends.items(), key=lambda x: x[1]['Total_SOL'], reverse=True)
+#     # Sort the tokens by Total SOL traded in descending order
+#     sorted_tokens = sorted(token_trends.items(), key=lambda x: x[1]['Total_SOL'], reverse=True)
 
-    print("")
+#     print("")
 
-    return jsonify({"trend": sorted_tokens})    
+#     return jsonify({"trend": sorted_tokens})    
 
 @app.route("/account/<wallet>", methods=["GET"])
 def get_account_info(wallet):
@@ -443,7 +443,8 @@ def get_account_info(wallet):
 
         print("=====>", len(holding), len(defi_trades))
     except:
-        driver_account = start_driver("account")
+        # driver_account = start_driver("account")
+        pass
         
     return jsonify({"holding": holding, "defi": defi_trades})
 
