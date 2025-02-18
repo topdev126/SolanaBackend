@@ -75,7 +75,7 @@ def insert_leaders_data(leaders_data):
 # Function to start Selenium WebDriver
 def start_driver(option):
     chrome_options = Options()
-    # chrome_options.add_argument("--headless")  # Run in headless mode
+    chrome_options.add_argument("--headless")  # Run in headless mode
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
