@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -18,6 +18,7 @@ from flask_caching import Cache
 from flask_socketio import SocketIO
 import ssl
 import numpy as np
+from bson.objectid import ObjectId
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = '12345'
@@ -36,6 +37,7 @@ else:
 MONGO_URI = "mongodb+srv://db-mongodb-sfo3-43626-3f408016.mongo.ondigitalocean.com"
 MONGO_DB = "kolscan"
 MONGO_COLLECTION = "leaders"
+MONGO_USER_COLLECTION = "users"
 MONGO_USER = "doadmin"
 MONGO_PASSWORD = "s6CqWNz9142eH378"
 MONGO_HOST = MONGO_URI
@@ -56,7 +58,12 @@ def ensure_leaders_collection():
     if MONGO_COLLECTION not in db.list_collection_names():
         print("Creating leaders collection...")
         # If not, create a new collection for leaders (MongoDB will auto-create it when inserting)
+
         db[MONGO_COLLECTION].create_index([("total_profit", pymongo.DESCENDING)])
+    if MONGO_USER_COLLECTION not in db.list_collection_names():
+        print("Creating leaders collection...")
+        # If not, create a new collection for leaders (MongoDB will auto-create it when inserting)
+        db[MONGO_USER_COLLECTION].create_index([("username", pymongo.DESCENDING)])        
     return db
 
 # Function to insert data into MongoDB
@@ -317,6 +324,8 @@ def run_background_tasks():
 @app.route('/')
 def hello_world():
     return 'Welcome to KolsOnline'
+
+
 @app.route("/trades", methods=["GET"])
 def get_trades():
     Trades_history_cpy = Trades_history.copy()
@@ -468,10 +477,40 @@ def get_leader():
         return jsonify({"message": "Server error", "error": str(e)}), 500
     
 db = ensure_leaders_collection()
-driver_trades = start_driver("trades")
-driver_account = start_driver("account")
-Trades_history = {}
-run_background_tasks()
+# driver_trades = start_driver("trades")
+# driver_account = start_driver("account")
+# Trades_history = {}
+# run_background_tasks()
+
+# Admin Route
+@app.route('/admin')
+def admin():
+    users = list(db[MONGO_USER_COLLECTION].find())
+    leaderboard = list(db[MONGO_COLLECTION].find())
+    return render_template('admin.html', users=users, leaderboard=leaderboard)
+
+# Toggle User Active/Inactive
+@app.route('/admin/toggle_user/<user_id>')
+def toggle_user(user_id):
+    user = db[MONGO_USER_COLLECTION].find_one({"_id": ObjectId(user_id)})
+    new_status = not user["active"]
+    db[MONGO_USER_COLLECTION].update_one({"_id": ObjectId(user_id)}, {"$set": {"active": new_status}})
+    flash(f"User {user['username']} status updated!", "success")
+    return redirect(url_for('admin'))
+
+# Remove User
+@app.route('/admin/remove_user/<user_id>')
+def remove_user(user_id):
+    db[MONGO_USER_COLLECTION].delete_one({"_id": ObjectId(user_id)})
+    flash("User removed!", "success")
+    return redirect(url_for('admin'))
+
+# Remove Leaderboard Entry
+@app.route('/admin/remove_leaderboard/<entry_id>')
+def remove_leaderboard(entry_id):
+    db[MONGO_COLLECTION].delete_one({"_id": ObjectId(entry_id)})
+    flash("Leaderboard entry removed!", "success")
+    return redirect(url_for('admin'))
 
 if __name__ == "__main__":
     socketio.run(app, host='0.0.0.0', port=5000)
