@@ -12,11 +12,12 @@ from pymongo import MongoClient
 import os, time
 import pickle
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask_cors import CORS
 from flask_caching import Cache
 from flask_socketio import SocketIO
 import ssl
+import numpy as np
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = '12345'
@@ -286,6 +287,7 @@ def watch_trades():
             socketio.emit("new_trade", {**trade, "Wallet": wallet})
         except:
             print("Error ==> ", )
+            driver_trades.refresh()
             pass
 
 # Function to run the scheduled tasks
@@ -338,47 +340,111 @@ def get_latest_trades():
 
     return jsonify({"trades": sorted_transactions})
 
+@app.route("/getTrend", methods=["GET"])
+def getTrend():
+    tokens = np.array([entry['Token'] for entry in Trades_history])
+    buy_sell = np.array([entry['Buy_Sell'] for entry in Trades_history])
+    sol_amounts = np.array([entry['Sol_Amount'] for entry in Trades_history])
+    token_amounts = np.array([entry['Token_Amount'] for entry in Trades_history])
+    time_strings = np.array([entry['Time'] for entry in Trades_history])
+
+    # Convert time to datetime format
+    times = np.array([datetime.strptime(time, '%a %b %d %Y %H:%M:%S GMT+0000 (Coordinated Universal Time)') for time in time_strings])
+
+    # Get the current time and calculate the 10 minutes ago timestamp
+    now = datetime.utcnow()
+    ten_minutes_ago = now - timedelta(minutes=10)
+
+    # Filter out the trades that are within the last 10 minutes
+    time_mask = times >= ten_minutes_ago
+
+    # Filtered data
+    filtered_tokens = tokens[time_mask]
+    filtered_buy_sell = buy_sell[time_mask]
+    filtered_sol_amounts = sol_amounts[time_mask]
+    filtered_token_amounts = token_amounts[time_mask]
+
+    # Get unique tokens in the last 10 minutes
+    unique_tokens = np.unique(filtered_tokens)
+
+    # Prepare results for token trends within the last 10 minutes
+    token_trends = {}
+
+    for token in unique_tokens:
+        token_mask = (filtered_tokens == token)  # Mask for the current token
+        token_buy_sell = filtered_buy_sell[token_mask]  # Buy/Sell actions for the current token
+        token_sol_amount = filtered_sol_amounts[token_mask]  # SOL amounts for the current token
+        token_token_amount = filtered_token_amounts[token_mask]  # Token amounts for the current token
+        
+        # Calculate total bought and sold in SOL
+        total_bought = np.sum(token_sol_amount[token_buy_sell == 'Buy'])
+        total_sold = np.sum(token_sol_amount[token_buy_sell == 'Sell'])
+        
+        # Calculate the profit (Total Bought - Total Sold)
+        total_profit = total_bought - total_sold
+
+        # Store the trend in the dictionary
+        token_trends[token] = {
+            'Total_Bought': total_bought,
+            'Total_Sold': total_sold,
+            'Net_Amount': total_profit,  # Net amount for trend indication (profit)
+            'Buy_Count': np.sum(token_buy_sell == 'Buy'),
+            'Sell_Count': np.sum(token_buy_sell == 'Sell'),
+            'Total_SOL': np.sum(token_sol_amount)  # Total SOL traded for the token
+        }
+
+    # Sort the tokens by Total SOL traded in descending order
+    sorted_tokens = sorted(token_trends.items(), key=lambda x: x[1]['Total_SOL'], reverse=True)
+
+    print("")
+
+    return jsonify({"trend": sorted_tokens})    
+
 @app.route("/account/<wallet>", methods=["GET"])
 def get_account_info(wallet):
-    driver_account.get(f"https://kolscan.io/account/{wallet}")
-    wait = WebDriverWait(driver_account, 5)
-    wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(@class, 'transaction_transactionContainer')]")))
-    holding_items = driver_account.find_elements(By.XPATH, "//*[contains(@class, 'account_accountHolding')]")
-    defi_items = driver_account.find_elements(By.XPATH, "//*[contains(@class, 'transaction_transactionContainer')]")
-    holding, defi_trades = [], []
-    
-    for holding_item in holding_items:
-        token_avatar = holding_item.find_element(By.CSS_SELECTOR, 'div[style*="position: relative"] img').get_attribute('src')
-        # Locate the token amount
-        token_amount = holding_item.find_element(By.CSS_SELECTOR, 'div.cursor-pointer').text.split()[0]
-        # Locate the token name
-        token_name = holding_item.find_element(By.CSS_SELECTOR, 'div.cursor-pointer strong').text
-        # Locate the USD value
-        usd_value = holding_item.find_element(By.CSS_SELECTOR, 'div[style*="margin-left: auto"]').text
-        holding.append({"Token_Avatar": token_avatar, "Token_Amount": token_amount, "Token_Name": token_name, "Usd_Value": usd_value})
-    
-    for defi_item in defi_items:
-        transactionInfo = defi_item.text.split()
-        buy_sell = transactionInfo[0]
-        if buy_sell == "Buy":
-            sol_amount, token_amount, token = transactionInfo[1], transactionInfo[3], transactionInfo[4]
-        else:
-            sol_amount, token_amount, token = transactionInfo[3], transactionInfo[1], transactionInfo[2]
-        # Locate the Time
-        time = defi_item.find_element(By.TAG_NAME, 'a').get_attribute('title')
-        link = defi_item.find_element(By.TAG_NAME, 'a').get_attribute('href')
-        trade = {
-            "Buy_Sell": buy_sell,
-            "Token_Amount": token_amount,
-            "Token": token,
-            "Sol_Amount": sol_amount,
-            "Time": time,
-            "Link": link,
-        }
-        defi_trades.append(trade)
+    global driver_account
+    try:
+        driver_account.get(f"https://kolscan.io/account/{wallet}")
+        wait = WebDriverWait(driver_account, 5)
+        wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(@class, 'transaction_transactionContainer')]")))
+        holding_items = driver_account.find_elements(By.XPATH, "//*[contains(@class, 'account_accountHolding')]")
+        defi_items = driver_account.find_elements(By.XPATH, "//*[contains(@class, 'transaction_transactionContainer')]")
+        holding, defi_trades = [], []
+        
+        for holding_item in holding_items:
+            token_avatar = holding_item.find_element(By.CSS_SELECTOR, 'div[style*="position: relative"] img').get_attribute('src')
+            # Locate the token amount
+            token_amount = holding_item.find_element(By.CSS_SELECTOR, 'div.cursor-pointer').text.split()[0]
+            # Locate the token name
+            token_name = holding_item.find_element(By.CSS_SELECTOR, 'div.cursor-pointer strong').text
+            # Locate the USD value
+            usd_value = holding_item.find_element(By.CSS_SELECTOR, 'div[style*="margin-left: auto"]').text
+            holding.append({"Token_Avatar": token_avatar, "Token_Amount": token_amount, "Token_Name": token_name, "Usd_Value": usd_value})
+        
+        for defi_item in defi_items:
+            transactionInfo = defi_item.text.split()
+            buy_sell = transactionInfo[0]
+            if buy_sell == "Buy":
+                sol_amount, token_amount, token = transactionInfo[1], transactionInfo[3], transactionInfo[4]
+            else:
+                sol_amount, token_amount, token = transactionInfo[3], transactionInfo[1], transactionInfo[2]
+            # Locate the Time
+            time = defi_item.find_element(By.TAG_NAME, 'a').get_attribute('title')
+            link = defi_item.find_element(By.TAG_NAME, 'a').get_attribute('href')
+            trade = {
+                "Buy_Sell": buy_sell,
+                "Token_Amount": token_amount,
+                "Token": token,
+                "Sol_Amount": sol_amount,
+                "Time": time,
+                "Link": link,
+            }
+            defi_trades.append(trade)
 
-    print("=====>", len(holding), len(defi_trades))
-
+        print("=====>", len(holding), len(defi_trades))
+    except:
+        driver_account = start_driver("account")
+        
     return jsonify({"holding": holding, "defi": defi_trades})
 
 @app.route("/leader", methods=["GET"])
@@ -409,4 +475,4 @@ Trades_history = {}
 run_background_tasks()
 
 if __name__ == "__main__":
-    socketio.run(app, host='0.0.0.0', port=5000, ssl_context=('cert.pem', 'key.pem'))
+    socketio.run(app, host='0.0.0.0', port=5000)
