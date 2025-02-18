@@ -75,7 +75,7 @@ def insert_leaders_data(leaders_data):
 # Function to start Selenium WebDriver
 def start_driver(option):
     chrome_options = Options()
-    chrome_options.add_argument("--headless")  # Run in headless mode
+    # chrome_options.add_argument("--headless")  # Run in headless mode
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
@@ -280,7 +280,6 @@ def watch_trades():
                 Trades_history[wallet] = [trade]
             end_time = time.time()
             if end_time - start_time > 600: 
-                driver_trades.refresh()
                 # trade_box.click()
                 start_time = time.time()
                 Trades_history = {key: value[:10] for key, value in Trades_history.items()}
@@ -288,6 +287,7 @@ def watch_trades():
         except:
             print("Error ==> ", )
             driver_trades.refresh()
+            time.sleep(3)
             pass
 
 # Function to run the scheduled tasks
@@ -451,7 +451,6 @@ def get_account_info(wallet):
 @app.route("/leader", methods=["GET"])
 @cache.cached(timeout=3600)  # Cache for 60 seconds
 def get_leader():
-    print(f"------time start {time.time()}--------------")
     try:
         leaders = list(db.leaders.find())  # Retrieve all documents from the leaders collection
 
@@ -461,7 +460,6 @@ def get_leader():
         # Convert MongoDB ObjectId to string
         for leader in leaders:
             leader["_id"] = str(leader["_id"])
-        print(f"----------- time end {time.time()}--------------")
 
         return jsonify(leaders), 200
 
