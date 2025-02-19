@@ -477,10 +477,10 @@ def get_leader():
         return jsonify({"message": "Server error", "error": str(e)}), 500
     
 db = ensure_leaders_collection()
-# driver_trades = start_driver("trades")
-# driver_account = start_driver("account")
-# Trades_history = {}
-# run_background_tasks()
+driver_trades = start_driver("trades")
+driver_account = start_driver("account")
+Trades_history = {}
+run_background_tasks()
 
 # Admin Route
 @app.route('/admin')
